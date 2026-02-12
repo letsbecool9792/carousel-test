@@ -18,6 +18,8 @@ interface StackCarouselProps<T> {
   stackScaleStep?: number;
   maxVisibleCards?: number;
   loop?: boolean;
+  /** Animation duration in ms. Lower = faster. Default 400. */
+  animationDuration?: number;
   onSnapToItem?: (index: number) => void;
 }
 
@@ -26,81 +28,72 @@ export function StackCarousel<T>({
   renderItem,
   cardWidth = SCREEN_WIDTH * 0.85,
   cardHeight = SCREEN_HEIGHT * 0.55,
-  stackOffset = 14,
+  stackOffset = 18,
   stackScaleStep = 0.05,
-  maxVisibleCards = 4,
-  loop = false,
+  maxVisibleCards = 2,
+  loop = true,
+  animationDuration = 900,
   onSnapToItem,
 }: StackCarouselProps<T>) {
+  // Spring config: lower duration = higher stiffness = faster
+  // Damping is calculated to prevent bounce (overdamped)
+  const mass = 0.9;
+  const stiffness = 60000 / animationDuration;
+  const damping = Math.sqrt(stiffness * mass) * 2.5; // heavily overdamped, zero bounce
+
+  const dismissDistance = SCREEN_HEIGHT + cardHeight;
+
   const animationStyle = useCallback(
     (value: number): ViewStyle => {
       "worklet";
 
-      // --- translateY ---
-      // value < 0 : card swiped up and away
-      // value 0   : resting position (front)
-      // value > 0 : peeking out below the front card
-      // use full screen height so the card travels all the way up and out
-      const dismissDistance = SCREEN_HEIGHT + cardHeight;
+      // Build interpolation arrays dynamically based on maxVisibleCards
+      // Input:  [-1, 0, 1, 2, ..., maxVisibleCards]
+      // Each output array maps these positions to visual properties
+
+      const inputRange = [-1, 0];
+      const translateYOutput = [-dismissDistance, 0];
+      const scaleOutput = [0.95, 1];
+      const zIndexOutput = [maxVisibleCards + 2, maxVisibleCards + 1];
+      const opacityOutput = [1, 1];
+
+      for (let i = 1; i <= maxVisibleCards; i++) {
+        inputRange.push(i);
+        translateYOutput.push(stackOffset * i);
+        scaleOutput.push(1 - stackScaleStep * i);
+        zIndexOutput.push(maxVisibleCards + 1 - i);
+        // Last visible card is slightly faded, rest full opacity
+        opacityOutput.push(i === maxVisibleCards ? 0.6 : 1);
+      }
+
+      // One extra slot beyond maxVisibleCards — fully hidden
+      inputRange.push(maxVisibleCards + 1);
+      translateYOutput.push(stackOffset * maxVisibleCards);
+      scaleOutput.push(1 - stackScaleStep * maxVisibleCards);
+      zIndexOutput.push(0);
+      opacityOutput.push(0);
 
       const translateY = interpolate(
         value,
-        [-1, 0, 1, 2, 3, 4],
-        [
-          -dismissDistance,
-          0,
-          stackOffset,
-          stackOffset * 2,
-          stackOffset * 3,
-          stackOffset * 4,
-        ],
+        inputRange,
+        translateYOutput,
         Extrapolation.CLAMP,
       );
-
-      // --- scale ---
-      // front card is 1.0; each card behind shrinks a step
       const scale = interpolate(
         value,
-        [-1, 0, 1, 2, 3, 4],
-        [
-          0.95,
-          1,
-          1 - stackScaleStep,
-          1 - stackScaleStep * 2,
-          1 - stackScaleStep * 3,
-          1 - stackScaleStep * 4,
-        ],
+        inputRange,
+        scaleOutput,
         Extrapolation.CLAMP,
       );
-
-      // --- opacity ---
-      // keep full opacity while the card is being swiped away;
-      // only fade the deepest stack cards slightly.
       const opacity = interpolate(
         value,
-        [-1, 0, 1, maxVisibleCards],
-        [1, 1, 1, 0.6],
+        inputRange,
+        opacityOutput,
         Extrapolation.CLAMP,
       );
-
-      // --- zIndex ---
-      // the card being swiped away (value < 0) must stay on top
-      // the entire time so it doesn't dip behind the next card.
-      const zIndex = interpolate(
-        value,
-        [-1, 0, 1, 2, 3, 4],
-        [
-          maxVisibleCards + 2,
-          maxVisibleCards + 1,
-          maxVisibleCards,
-          maxVisibleCards - 1,
-          maxVisibleCards - 2,
-          maxVisibleCards - 3,
-        ],
-      );
+      const zIndex = interpolate(value, inputRange, zIndexOutput);
 
       // --- subtle rotation on dismiss ---
-      // Gives a natural "flick" feel when swiping up
       const rotateZ = interpolate(
         value,
         [-1, -0.5, 0, 0.5, 1],
@@ -114,7 +107,7 @@ export function StackCarousel<T>({
         zIndex: Math.round(zIndex),
       };
     },
-    [cardHeight, stackOffset, stackScaleStep, maxVisibleCards],
+    [dismissDistance, stackOffset, stackScaleStep, maxVisibleCards],
   );
 
   return (
@@ -135,6 +128,10 @@ export function StackCarousel<T>({
         customAnimation={animationStyle}
         windowSize={maxVisibleCards + 2}
         loop={loop}
+        withAnimation={{
+          type: "spring",
+          config: { damping, stiffness, mass },
+        }}
         onSnapToItem={onSnapToItem}
         autoFillData={false}
         overscrollEnabled={false}
