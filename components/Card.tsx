@@ -1,10 +1,9 @@
 import React from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, ImageSourcePropType, StyleSheet, View } from "react-native";
 
 export interface CardData {
   id: string;
-  label: string;
-  color: string;
+  image: ImageSourcePropType;
 }
 
 interface CardProps {
@@ -15,13 +14,8 @@ interface CardProps {
 
 export function Card({ item, size }: CardProps) {
   return (
-    <View
-      style={[
-        styles.card,
-        { width: size, height: size, backgroundColor: item.color },
-      ]}
-    >
-      <Text style={styles.label}>{item.label}</Text>
+    <View style={[styles.card, { width: size, height: size }]}>
+      <Image source={item.image} style={styles.image} />
     </View>
   );
 }
@@ -29,17 +23,16 @@ export function Card({ item, size }: CardProps) {
 const styles = StyleSheet.create({
   card: {
     borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
+    overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.18,
     shadowRadius: 16,
     elevation: 10,
   },
-  label: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#fff",
+  image: {
+    width: "100%",
+    height: "100%",
+    resizeMode: "cover",
   },
 });

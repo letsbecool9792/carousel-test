@@ -1,32 +1,44 @@
 import { Card, CardData } from "@/components/Card";
 import { StackCarousel } from "@/components/StackCarousel";
+import { useRouter } from "expo-router";
 import React, { useCallback } from "react";
-import { Dimensions, StyleSheet, View } from "react-native";
+import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_SIZE = SCREEN_WIDTH * 0.85;
 
-const COLORS = [
-  "#6C5CE7",
-  "#E17055",
-  "#00B894",
-  "#0984E3",
-  "#D63031",
-  "#FDCB6E",
+// Map images from assets/cats
+const CAT_IMAGES = [
+  require("@/assets/cats/1.jpg"),
+  require("@/assets/cats/2.jpg"),
+  require("@/assets/cats/3.jpg"),
+  require("@/assets/cats/4.jpg"),
+  require("@/assets/cats/5.jpg"),
+  require("@/assets/cats/6.jpg"),
 ];
 
-const CARDS: CardData[] = COLORS.map((color, i) => ({
+const CARDS: CardData[] = CAT_IMAGES.map((image, i) => ({
   id: String(i + 1),
-  label: `Card ${i + 1}`,
-  color,
+  image,
 }));
 
 export default function Index() {
+  const router = useRouter();
+
   const renderItem = useCallback(
     ({ item, index }: { item: CardData; index: number }) => (
-      <Card item={item} index={index} size={CARD_SIZE} />
+      <Pressable
+        onPress={() =>
+          router.push({
+            pathname: "/card/[id]" as any,
+            params: { id: item.id },
+          })
+        }
+      >
+        <Card item={item} index={index} size={CARD_SIZE} />
+      </Pressable>
     ),
-    [],
+    [router],
   );
 
   return (
