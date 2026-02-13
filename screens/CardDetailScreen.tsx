@@ -1,6 +1,8 @@
 import { useCardExpandAnimation } from "@/animations/cardTransition";
+import type { RootStackParamList } from "@/navigation/AppNavigator";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { RouteProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useEffect, useRef } from "react";
 import {
     BackHandler,
@@ -19,7 +21,7 @@ const CARD_HEIGHT = SCREEN_HEIGHT * 0.55;
 const TOP_BAR_HEIGHT = 90;
 const START_SIZE = SCREEN_WIDTH * 0.85;
 
-// Same order as index.tsx — keyed by id
+// Same order as HomeScreen — keyed by id
 const CAT_IMAGES: Record<string, any> = {
   "1": require("@/assets/cats/1.jpg"),
   "2": require("@/assets/cats/2.jpg"),
@@ -29,9 +31,13 @@ const CAT_IMAGES: Record<string, any> = {
   "6": require("@/assets/cats/6.jpg"),
 };
 
-export default function CardDetail() {
-  const { id } = useLocalSearchParams<{ id: string }>();
-  const router = useRouter();
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, "CardDetail">;
+  route: RouteProp<RootStackParamList, "CardDetail">;
+};
+
+export default function CardDetailScreen({ navigation, route }: Props) {
+  const { id } = route.params;
   const isAnimatingOut = useRef(false);
 
   const { cardStyle, contentStyle, animateOut } = useCardExpandAnimation({
@@ -44,7 +50,7 @@ export default function CardDetail() {
   const handleBack = () => {
     if (isAnimatingOut.current) return;
     isAnimatingOut.current = true;
-    animateOut(() => router.back());
+    animateOut(() => navigation.goBack());
   };
 
   useEffect(() => {

@@ -1,8 +1,10 @@
 import { Card, CardData } from "@/components/Card";
 import { StackCarousel } from "@/components/StackCarousel";
-import { useRouter } from "expo-router";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import React, { useCallback } from "react";
 import { Dimensions, Pressable, StyleSheet, View } from "react-native";
+
+import type { RootStackParamList } from "@/navigation/AppNavigator";
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_SIZE = SCREEN_WIDTH * 0.85;
@@ -22,23 +24,20 @@ const CARDS: CardData[] = CAT_IMAGES.map((image, i) => ({
   image,
 }));
 
-export default function Index() {
-  const router = useRouter();
+type Props = {
+  navigation: NativeStackNavigationProp<RootStackParamList, "Home">;
+};
 
+export default function HomeScreen({ navigation }: Props) {
   const renderItem = useCallback(
     ({ item, index }: { item: CardData; index: number }) => (
       <Pressable
-        onPress={() =>
-          router.push({
-            pathname: "/card/[id]" as any,
-            params: { id: item.id },
-          })
-        }
+        onPress={() => navigation.navigate("CardDetail", { id: item.id })}
       >
         <Card item={item} index={index} size={CARD_SIZE} />
       </Pressable>
     ),
-    [router],
+    [navigation],
   );
 
   return (
