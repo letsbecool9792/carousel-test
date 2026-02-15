@@ -23,7 +23,7 @@ export default function AppNavigator() {
           options={{
             presentation: "transparentModal",
             animation: "none",
-            gestureEnabled: false,
+            //gestureEnabled: false,
             contentStyle: { backgroundColor: "transparent" },
           }}
         />

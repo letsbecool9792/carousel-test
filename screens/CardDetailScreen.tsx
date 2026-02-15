@@ -1,12 +1,14 @@
 import { useCardExpandAnimation } from "@/animations/cardTransition";
 import type { RootStackParamList } from "@/navigation/AppNavigator";
+import { scrollToHome } from "@/utils/scrollSync";
 import { Ionicons } from "@expo/vector-icons";
 import { RouteProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
     BackHandler,
     Dimensions,
+    FlatList,
     Image,
     Pressable,
     StyleSheet,
@@ -21,15 +23,15 @@ const CARD_HEIGHT = SCREEN_HEIGHT * 0.55;
 const TOP_BAR_HEIGHT = 90;
 const START_SIZE = SCREEN_WIDTH * 0.85;
 
-// Same order as HomeScreen — keyed by id
-const CAT_IMAGES: Record<string, any> = {
-  "1": require("@/assets/cats/1.jpg"),
-  "2": require("@/assets/cats/2.jpg"),
-  "3": require("@/assets/cats/3.jpg"),
-  "4": require("@/assets/cats/4.jpg"),
-  "5": require("@/assets/cats/5.jpg"),
-  "6": require("@/assets/cats/6.jpg"),
-};
+// Ordered list of all images
+const ALL_IMAGES = [
+  { id: "1", source: require("@/assets/cats/1.jpg") },
+  { id: "2", source: require("@/assets/cats/2.jpg") },
+  { id: "3", source: require("@/assets/cats/3.jpg") },
+  { id: "4", source: require("@/assets/cats/4.jpg") },
+  { id: "5", source: require("@/assets/cats/5.jpg") },
+  { id: "6", source: require("@/assets/cats/6.jpg") },
+];
 
 type Props = {
   navigation: NativeStackNavigationProp<RootStackParamList, "CardDetail">;
@@ -39,18 +41,30 @@ type Props = {
 export default function CardDetailScreen({ navigation, route }: Props) {
   const { id } = route.params;
   const isAnimatingOut = useRef(false);
+  const initialIndex = ALL_IMAGES.findIndex((img) => img.id === id) ?? 0;
+  const [activeIndex, setActiveIndex] = useState(initialIndex);
+
+  const [isExpanded, setIsExpanded] = useState(false);
 
   const { cardStyle, contentStyle, animateOut } = useCardExpandAnimation({
     startSize: START_SIZE,
     endWidth: CARD_WIDTH,
     endHeight: CARD_HEIGHT,
     topBarHeight: TOP_BAR_HEIGHT,
+    onExpandComplete: () => setIsExpanded(true),
   });
 
   const handleBack = () => {
     if (isAnimatingOut.current) return;
     isAnimatingOut.current = true;
-    animateOut(() => navigation.goBack());
+    setIsExpanded(false); // switch back to single image before animating
+    // Small delay to let React re-render before animation starts
+    requestAnimationFrame(() => {
+      animateOut(() => {
+        scrollToHome(activeIndex);
+        navigation.goBack();
+      });
+    });
   };
 
   useEffect(() => {
@@ -61,7 +75,17 @@ export default function CardDetailScreen({ navigation, route }: Props) {
     return () => sub.remove();
   }, []);
 
-  const imageSource = CAT_IMAGES[id ?? "1"];
+  const activeSource = ALL_IMAGES[activeIndex]?.source ?? ALL_IMAGES[0].source;
+
+  const onViewableItemsChanged = useRef(
+    ({ viewableItems }: { viewableItems: Array<{ index: number | null }> }) => {
+      if (viewableItems.length > 0 && viewableItems[0].index != null) {
+        setActiveIndex(viewableItems[0].index);
+      }
+    },
+  ).current;
+
+  const viewabilityConfig = useRef({ itemVisiblePercentThreshold: 50 }).current;
 
   return (
     <View style={styles.container}>
@@ -76,9 +100,46 @@ export default function CardDetailScreen({ navigation, route }: Props) {
         </Pressable>
       </View>
 
-      {/* Card — animated image */}
+      {/* Card — horizontal image carousel */}
       <Animated.View style={[styles.card, cardStyle]}>
-        <Image source={imageSource} style={styles.cardImage} />
+        {/* Base image — always mounted, fills container at any size */}
+        <Image
+          source={activeSource}
+          style={{ width: "100%", height: "100%" }}
+          resizeMode="cover"
+        />
+
+        {/* FlatList carousel — layered on top, only visible when expanded */}
+        {isExpanded && (
+          <View style={StyleSheet.absoluteFill}>
+            <FlatList
+              data={ALL_IMAGES}
+              renderItem={({ item }) => (
+                <Image
+                  source={item.source}
+                  style={{
+                    width: CARD_WIDTH,
+                    height: CARD_HEIGHT,
+                    resizeMode: "cover",
+                  }}
+                />
+              )}
+              keyExtractor={(item) => item.id}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              initialScrollIndex={initialIndex}
+              getItemLayout={(_, index) => ({
+                length: CARD_WIDTH,
+                offset: CARD_WIDTH * index,
+                index,
+              })}
+              bounces={false}
+              onViewableItemsChanged={onViewableItemsChanged}
+              viewabilityConfig={viewabilityConfig}
+            />
+          </View>
+        )}
       </Animated.View>
 
       {/* Bottom content */}
@@ -122,11 +183,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 20,
     elevation: 12,
-  },
-  cardImage: {
-    width: "100%",
-    height: "100%",
-    resizeMode: "cover",
   },
   bottomContent: {
     flex: 1,

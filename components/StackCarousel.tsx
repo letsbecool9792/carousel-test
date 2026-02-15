@@ -1,7 +1,16 @@
-import React, { useCallback } from "react";
+import React, {
+    forwardRef,
+    useCallback,
+    useImperativeHandle,
+    useRef,
+} from "react";
 import { Dimensions, View, ViewStyle } from "react-native";
 import { Extrapolation, interpolate } from "react-native-reanimated";
-import Carousel from "react-native-reanimated-carousel";
+import Carousel, { ICarouselInstance } from "react-native-reanimated-carousel";
+
+export interface StackCarouselRef {
+  scrollTo: (index: number) => void;
+}
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 
@@ -23,18 +32,28 @@ interface StackCarouselProps<T> {
   onSnapToItem?: (index: number) => void;
 }
 
-export function StackCarousel<T>({
-  data,
-  renderItem,
-  cardWidth = SCREEN_WIDTH * 0.85,
-  cardHeight = SCREEN_HEIGHT * 0.55,
-  stackOffset = 18,
-  stackScaleStep = 0.05,
-  maxVisibleCards = 2,
-  loop = true,
-  animationDuration = 900,
-  onSnapToItem,
-}: StackCarouselProps<T>) {
+function StackCarouselInner<T>(
+  {
+    data,
+    renderItem,
+    cardWidth = SCREEN_WIDTH * 0.85,
+    cardHeight = SCREEN_HEIGHT * 0.55,
+    stackOffset = 18,
+    stackScaleStep = 0.05,
+    maxVisibleCards = 2,
+    loop = true,
+    animationDuration = 900,
+    onSnapToItem,
+  }: StackCarouselProps<T>,
+  ref: React.Ref<StackCarouselRef>,
+) {
+  const carouselRef = useRef<ICarouselInstance>(null);
+
+  useImperativeHandle(ref, () => ({
+    scrollTo: (index: number) => {
+      carouselRef.current?.scrollTo({ index, animated: false });
+    },
+  }));
   // Spring config: lower duration = higher stiffness = faster
   // Damping is calculated to prevent bounce (overdamped)
   const mass = 0.9;
@@ -53,6 +72,7 @@ export function StackCarousel<T>({
 
       const inputRange = [-1, 0];
       const translateYOutput = [-dismissDistance, 0];
+      //const translateYOutput = [dismissDistance, 0];
       const scaleOutput = [0.95, 1];
       const zIndexOutput = [maxVisibleCards + 2, maxVisibleCards + 1];
       const opacityOutput = [1, 1];
@@ -94,15 +114,16 @@ export function StackCarousel<T>({
       const zIndex = interpolate(value, inputRange, zIndexOutput);
 
       // --- subtle rotation on dismiss ---
+      /*
       const rotateZ = interpolate(
         value,
         [-1, -0.5, 0, 0.5, 1],
         [-3, -1.5, 0, 0, 0],
         Extrapolation.CLAMP,
-      );
+      );*/
 
       return {
-        transform: [{ translateY }, { scale }, { rotateZ: `${rotateZ}deg` }],
+        transform: [{ translateY }, { scale }],
         opacity,
         zIndex: Math.round(zIndex),
       };
@@ -120,6 +141,7 @@ export function StackCarousel<T>({
       }}
     >
       <Carousel
+        ref={carouselRef}
         vertical
         data={data}
         renderItem={renderItem}
@@ -144,3 +166,7 @@ export function StackCarousel<T>({
     </View>
   );
 }
+
+export const StackCarousel = forwardRef(StackCarouselInner) as <T>(
+  props: StackCarouselProps<T> & { ref?: React.Ref<StackCarouselRef> },
+) => React.ReactElement;

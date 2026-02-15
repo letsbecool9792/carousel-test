@@ -1,7 +1,11 @@
 import { Card, CardData } from "@/components/Card";
-import { StackCarousel } from "@/components/StackCarousel";
+import { StackCarousel, StackCarouselRef } from "@/components/StackCarousel";
+import {
+    registerScrollCallback,
+    unregisterScrollCallback,
+} from "@/utils/scrollSync";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import React, { useCallback } from "react";
+import React, { useCallback, useEffect, useRef } from "react";
 import { Dimensions, Pressable, StyleSheet, View } from "react-native";
 
 import type { RootStackParamList } from "@/navigation/AppNavigator";
@@ -29,6 +33,14 @@ type Props = {
 };
 
 export default function HomeScreen({ navigation }: Props) {
+  const carouselRef = useRef<StackCarouselRef>(null);
+
+  useEffect(() => {
+    registerScrollCallback((index: number) => {
+      carouselRef.current?.scrollTo(index);
+    });
+    return () => unregisterScrollCallback();
+  }, []);
   const renderItem = useCallback(
     ({ item, index }: { item: CardData; index: number }) => (
       <Pressable
@@ -43,6 +55,7 @@ export default function HomeScreen({ navigation }: Props) {
   return (
     <View style={styles.container}>
       <StackCarousel
+        ref={carouselRef}
         data={CARDS}
         renderItem={renderItem}
         cardWidth={CARD_SIZE}

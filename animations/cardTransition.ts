@@ -16,6 +16,7 @@ interface CardExpandParams {
   endWidth: number;
   endHeight: number;
   topBarHeight: number;
+  onExpandComplete?: () => void;
 }
 
 /**
@@ -37,6 +38,7 @@ export function useCardExpandAnimation({
   endWidth,
   endHeight,
   topBarHeight,
+  onExpandComplete,
 }: CardExpandParams) {
   const progress = useSharedValue(0);
 
@@ -45,10 +47,19 @@ export function useCardExpandAnimation({
   const offsetY = startCenterY - endCenterY;
 
   useEffect(() => {
-    progress.value = withTiming(1, {
-      duration: DURATION_IN,
-      easing: EASING_IN,
-    });
+    progress.value = withTiming(
+      1,
+      {
+        duration: DURATION_IN,
+        easing: EASING_IN,
+      },
+      (finished) => {
+        "worklet";
+        if (finished && onExpandComplete) {
+          runOnJS(onExpandComplete)();
+        }
+      },
+    );
   }, []);
 
   const animateOut = useCallback((onDone: () => void) => {
